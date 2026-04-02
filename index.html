@@ -43,45 +43,70 @@
     z-index:0;
   }
 
-  /* ── SHEETS SETUP BANNER ── */
-  #setup-banner {
-    background:linear-gradient(135deg,#1565C0,#0D47A1);
-    color:#fff;
-    padding:12px 20px;
-    font-size:13px;
-    display:flex;
+  /* ── SHEETS SETUP BANNER (hidden - admin only) ── */
+  #setup-banner { display:none; }
+
+  /* ── ADMIN PANEL ── */
+  #admin-panel {
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.75);
+    z-index:9999;
     align-items:center;
-    gap:12px;
-    flex-wrap:wrap;
+    justify-content:center;
+    padding:20px;
   }
-  #setup-banner strong { font-size:14px; }
-  #sheets-url-input {
-    flex:1;
-    min-width:220px;
-    padding:7px 12px;
-    border-radius:8px;
-    border:none;
+  #admin-panel.open { display:flex; }
+  .admin-box {
+    background:#1a237e;
+    border-radius:20px;
+    padding:32px;
+    width:100%;
+    max-width:520px;
+    color:#fff;
+    animation:fadeUp .3s ease;
+  }
+  .admin-box h2 { font-family:'Playfair Display',serif; font-size:22px; font-weight:800; margin-bottom:6px; }
+  .admin-box p { font-size:13px; opacity:.75; margin-bottom:20px; }
+  .admin-input {
+    width:100%;
+    padding:12px 14px;
+    border-radius:10px;
+    border:2px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.1);
+    color:#fff;
     font-family:'Nunito',sans-serif;
     font-size:13px;
-    background:rgba(255,255,255,0.95);
-    color:#1a237e;
     font-weight:600;
+    outline:none;
+    margin-bottom:12px;
   }
-  #sheets-url-input:focus { outline:2px solid var(--turmeric); }
-  .connect-btn {
-    background:var(--turmeric);
-    color:var(--dark);
-    border:none;
-    padding:7px 16px;
-    border-radius:8px;
-    font-weight:800;
-    font-size:13px;
-    cursor:pointer;
-    white-space:nowrap;
+  .admin-input::placeholder { color:rgba(255,255,255,.4); }
+  .admin-input:focus { border-color:var(--turmeric); }
+  .admin-btns { display:flex; gap:10px; margin-top:4px; }
+  .admin-save-btn {
+    flex:1; background:var(--turmeric); color:var(--dark);
+    border:none; padding:12px; border-radius:10px;
+    font-family:'Nunito',sans-serif; font-weight:800; font-size:14px;
+    cursor:pointer; transition:all .2s;
   }
-  .connect-btn:hover { background:#fff; }
-  #sheets-status { font-size:12px; padding:4px 10px; border-radius:20px; background:rgba(255,255,255,0.15); }
-  #sheets-status.connected { background:#1B5E20; }
+  .admin-save-btn:hover { background:#fff; }
+  .admin-close-btn {
+    background:rgba(255,255,255,.1); color:#fff;
+    border:2px solid rgba(255,255,255,.2); padding:12px 18px;
+    border-radius:10px; font-family:'Nunito',sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; transition:all .2s;
+  }
+  .admin-close-btn:hover { background:rgba(255,255,255,.2); }
+  .admin-status {
+    margin-top:12px; padding:10px 14px; border-radius:8px;
+    font-size:13px; font-weight:700;
+    background:rgba(255,255,255,.1);
+  }
+  .admin-status.ok { background:rgba(76,175,80,.3); }
+  .admin-status.err { background:rgba(244,67,54,.3); }
+  #sheets-url-input, #sheets-status, .connect-btn { display:none; }
 
   /* ── HEADER ── */
   header {
@@ -690,15 +715,30 @@
 </head>
 <body>
 
-<!-- ── SETUP BANNER ── -->
-<div id="setup-banner">
-  <div>
-    <strong>📊 Connect Google Sheets</strong><br>
-    <span style="opacity:.8;font-size:11px">Paste your Apps Script Web App URL to save orders & customer data</span>
+<!-- hidden inputs referenced by JS -->
+<div id="setup-banner" style="display:none">
+  <input id="sheets-url-input" type="text">
+  <span id="sheets-status"></span>
+</div>
+
+<!-- ── ADMIN PANEL (secret access only) ── -->
+<div id="admin-panel">
+  <div class="admin-box">
+    <h2>🔧 Vindu Admin Panel</h2>
+    <p>Connect Google Sheets to automatically save all orders and customer details.</p>
+    <label style="font-size:12px;opacity:.7;display:block;margin-bottom:6px">Google Apps Script Web App URL</label>
+    <input class="admin-input" id="admin-sheets-url" type="text" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
+    <div id="admin-status" class="admin-status" style="display:none"></div>
+    <div class="admin-btns">
+      <button class="admin-close-btn" onclick="closeAdmin()">✕ Close</button>
+      <button class="admin-save-btn" onclick="adminConnect()">🔗 Connect &amp; Save</button>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:rgba(255,255,255,.07);border-radius:10px;font-size:12px;opacity:.7;line-height:1.6">
+      🔒 <strong>Only visible to you (the owner)</strong><br>
+      Customers will never see this screen.<br>
+      Access anytime: <strong>vindu-food-app.vercel.app/?admin</strong>
+    </div>
   </div>
-  <input id="sheets-url-input" type="text" placeholder="https://script.google.com/macros/s/YOUR_ID/exec" oninput="onUrlInput()">
-  <button class="connect-btn" onclick="connectSheets()">🔗 Connect</button>
-  <span id="sheets-status">⚡ Not connected</span>
 </div>
 
 <header>
@@ -897,34 +937,59 @@
 <script>
 // ── GOOGLE SHEETS CONFIG ──
 let SHEETS_URL = localStorage.getItem('vindu_sheets_url') || '';
-let sheetsConnected = false;
+let sheetsConnected = !!SHEETS_URL;
 
-function onUrlInput() {
-  const val = document.getElementById('sheets-url-input').value.trim();
-  SHEETS_URL = val;
+// ── ADMIN PANEL ──
+// Access via: yoursite.vercel.app/?admin
+function openAdmin() {
+  const panel = document.getElementById('admin-panel');
+  panel.classList.add('open');
+  const saved = localStorage.getItem('vindu_sheets_url') || '';
+  document.getElementById('admin-sheets-url').value = saved;
+  const st = document.getElementById('admin-status');
+  if (saved) {
+    st.style.display = 'block';
+    st.className = 'admin-status ok';
+    st.textContent = '✅ Google Sheets is connected and saving orders!';
+  } else {
+    st.style.display = 'none';
+  }
 }
 
-function connectSheets() {
-  const url = document.getElementById('sheets-url-input').value.trim();
+function closeAdmin() {
+  document.getElementById('admin-panel').classList.remove('open');
+}
+
+async function adminConnect() {
+  const url = document.getElementById('admin-sheets-url').value.trim();
+  const st = document.getElementById('admin-status');
+  st.style.display = 'block';
+  st.className = 'admin-status';
+  st.textContent = '⏳ Testing connection...';
+
   if (!url || !url.includes('script.google.com')) {
-    showToast('⚠️ Please enter a valid Google Apps Script URL');
+    st.className = 'admin-status err';
+    st.textContent = '❌ Please enter a valid Google Apps Script URL';
     return;
   }
+
   SHEETS_URL = url;
   localStorage.setItem('vindu_sheets_url', url);
-  // Test connection by calling initSheets
-  callSheets('initSheets', {})
-    .then(res => {
-      if (res && res.success) {
-        sheetsConnected = true;
-        document.getElementById('sheets-status').textContent = '✅ Connected!';
-        document.getElementById('sheets-status').classList.add('connected');
-        showToast('✅ Google Sheets connected! All data will be saved automatically.');
-      } else {
-        showToast('❌ Connection failed. Check your URL and deployment settings.');
-      }
-    })
-    .catch(() => showToast('❌ Could not reach Google Sheets. Check the URL & deployment.'));
+
+  try {
+    const res = await callSheets('initSheets', {});
+    if (res && res.success) {
+      sheetsConnected = true;
+      st.className = 'admin-status ok';
+      st.textContent = '✅ Connected! All orders will now save to Google Sheets automatically.';
+    } else {
+      st.className = 'admin-status err';
+      st.textContent = '❌ Connection failed. Check your URL and deployment settings.';
+    }
+  } catch(e) {
+    st.className = 'admin-status err';
+    st.textContent = '❌ Could not reach Google Sheets. Check the URL.';
+  }
 }
 
 async function callSheets(action, payload) {
@@ -942,13 +1007,11 @@ async function callSheets(action, payload) {
   }
 }
 
-// Pre-fill URL if saved
+// ── CHECK FOR ADMIN URL PARAM ──
+// Owner visits: vindu-food-app.vercel.app/?admin  to open admin panel
 window.addEventListener('load', () => {
-  if (SHEETS_URL) {
-    document.getElementById('sheets-url-input').value = SHEETS_URL;
-    sheetsConnected = true;
-    document.getElementById('sheets-status').textContent = '✅ Connected!';
-    document.getElementById('sheets-status').classList.add('connected');
+  if (window.location.search.includes('admin')) {
+    openAdmin();
   }
 });
 
